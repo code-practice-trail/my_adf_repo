@@ -1,0 +1,34 @@
+{
+	"name": "DS_SQL_STG",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "ChatGPT"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "CUSTOMER_ID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CUSTOMER_NAME",
+				"type": "varchar"
+			},
+			{
+				"name": "EMAIL",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "STG_CUSTOMERS"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,361 @@
+{
+	"name": "PL_INGEST_CUSTOMERS",
+	"properties": {
+		"description": "Enterprise Production Grade ADF Pipeline",
+		"activities": [
+			{
+				"name": "GET_METADATA",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DS_Container",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": "@pipeline().parameters.folder_name",
+							"file_name": "@pipeline().parameters.filename"
+						}
+					},
+					"fieldList": [
+						"exists",
+						"size",
+						"lastModified"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "VALIDATE_FILE_EXISTS",
+				"type": "Validation",
+				"dependsOn": [
+					{
+						"activity": "GET_METADATA",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DS_Container",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": "@pipeline().parameters.folder_name",
+							"file_name": "@pipeline().parameters.filename"
+						}
+					},
+					"timeout": "0.01:00:00",
+					"sleep": 10
+				}
+			},
+			{
+				"name": "LOOKUP_SCHEMA_METADATA",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "VALIDATE_FILE_EXISTS",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT COLUMN_NAME, DATA_TYPE FROM CONTROL_SCHEMA_METADATA WHERE TABLE_NAME='CUSTOMERS'",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQLDB",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "IF_SCHEMA_VALID",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "LOOKUP_SCHEMA_METADATA",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(length(activity('LOOKUP_SCHEMA_METADATA').output.value),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "FAIL_SCHEMA_VALIDATION",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Schema Validation Failed",
+								"errorCode": "SCHEMA_ERROR"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "SCHEMA_VALIDATED",
+							"type": "Wait",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 1
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "GET_SOURCE_ROW_COUNT",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "IF_SCHEMA_VALID",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 2,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource"
+					},
+					"dataset": {
+						"referenceName": "DS_Container",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": "@pipeline().parameters.folder_name",
+							"file_name": "@pipeline().parameters.filename"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "IF_ROW_COUNT_VALID",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "GET_SOURCE_ROW_COUNT",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(length(activity('GET_SOURCE_ROW_COUNT').output.value),0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "FAIL_ROW_COUNT",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Row Count Validation Failed",
+								"errorCode": "ROWCOUNT_ERROR"
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "ROW_COUNT_VALIDATED",
+							"type": "Wait",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"waitTimeInSeconds": 1
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "COPY_TO_SQL_STAGE",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "IF_ROW_COUNT_VALID",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "1.00:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings",
+							"skipLineCount": 0
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": true
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_Container",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": "@pipeline().parameters.folder_name",
+							"file_name": "@pipeline().parameters.filename"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_SQL_STG",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "SEND_FAILURE_NOTIFICATION",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "GET_METADATA",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "VALIDATE_FILE_EXISTS",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "IF_SCHEMA_VALID",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "IF_ROW_COUNT_VALID",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "COPY_TO_SQL_STAGE",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.01:00:00",
+					"retry": 1,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": true,
+					"secureInput": true
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": "https://your-logic-app-url.azurewebsites.net/api/notify",
+					"body": {
+						"pipeline_name": "@pipeline().Pipeline",
+						"run_id": "@pipeline().RunId",
+						"file_name": "@pipeline().parameters.filename",
+						"status": "FAILED",
+						"time": "@utcNow()"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"folder_name": {
+				"type": "string",
+				"defaultValue": "raw/customers"
+			},
+			"filename": {
+				"type": "string",
+				"defaultValue": "customers.csv"
+			}
+		},
+		"folder": {
+			"name": "enterprise_framework"
+		},
+		"annotations": [
+			"Enterprise",
+			"Production",
+			"MetadataDriven",
+			"ValidationFramework"
+		],
+		"lastPublishTime": "2026-06-09T14:55:39Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

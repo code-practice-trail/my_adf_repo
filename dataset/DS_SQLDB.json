@@ -1,0 +1,49 @@
+{
+	"name": "DS_SQLDB",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLDB",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "ChatGPT"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "RUN_ID",
+				"type": "varchar"
+			},
+			{
+				"name": "PIPELINE_NAME",
+				"type": "varchar"
+			},
+			{
+				"name": "STATUS",
+				"type": "varchar"
+			},
+			{
+				"name": "START_TIME",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "END_TIME",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "ERROR_MESSAGE",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "ETL_AUDIT_LOG"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

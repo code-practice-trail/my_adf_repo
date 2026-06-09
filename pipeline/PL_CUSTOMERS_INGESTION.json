@@ -1,0 +1,124 @@
+{
+	"name": "PL_CUSTOMERS_INGESTION",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Metadata",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DS_CUSTOMERS_CSV",
+						"type": "DatasetReference",
+						"parameters": {
+							"folder_name": "/raw/customers",
+							"file_name": "customers.csv"
+						}
+					},
+					"fieldList": [
+						"columnCount",
+						"exists",
+						"lastModified",
+						"size",
+						"structure"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "is_file_exists",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "is_exists",
+					"value": {
+						"value": "@activity('Get Metadata').output.exists",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Web1",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata",
+						"dependencyConditions": [
+							"Failed"
+						]
+					},
+					{
+						"activity": "is_file_exists",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"\"Content-Type\"": "\"application/json\""
+					},
+					"url": "https://prod-01.northcentralus.logic.azure.com:443/workflows/f7bcb342997d4f078db23f4b5f2b322f/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=NtvyZR6TmrAVwl00BJOjKBDIiEMOYuG-0BxRQVLmcqU",
+					"body": {
+						"pipeline_name": "@{pipeline().Pipeline}",
+						"status": "FAILED",
+						"message": "Schema validation failed"
+					}
+				}
+			}
+		],
+		"variables": {
+			"is_exists": {
+				"type": "Boolean"
+			},
+			"file_sctructure": {
+				"type": "Array"
+			},
+			"v_file_size": {
+				"type": "Integer"
+			}
+		},
+		"folder": {
+			"name": "My Project"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-09T18:31:20Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

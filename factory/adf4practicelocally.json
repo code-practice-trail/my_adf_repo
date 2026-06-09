@@ -1,0 +1,15 @@
+{
+	"name": "adf4practicelocally",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "9627a475-d56f-4aec-a1ac-64a2c25bcb60",
+		"tenantId": "b7a5a99f-e35c-4c18-8957-428737dc3af1"
+	}
+}
